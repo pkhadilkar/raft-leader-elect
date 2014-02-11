@@ -1,14 +1,16 @@
 package elect
 
 import (
-	"github.com/pkhadilkar/cluster"
 	"fmt"
-	"time"
-	"sync"
+	"github.com/pkhadilkar/cluster"
 	"math/rand"
+	"sync"
+	"time"
 )
 
-const bufferSize = 100 
+const bufferSize = 100
+
+const NotVoted = -1
 
 //TODO: Use separate locks for state and term
 
@@ -21,25 +23,30 @@ const (
 
 // raftServer is a concrete implementation of raft Interface
 type raftServer struct {
-	term int // current term of the server
-	leader bool // indicates whether current server is leader
-	state int // current state of the server
-	eTimeout *time.Timer // timer for election timeout
-	duration time.Duration // duration for election timeout
-	votedFor int // id of the server that received vote from this server in current term
-	server cluster.Server // cluster server that provides message send/ receive functionality
-	elect chan *RequestVote // channel to receive election related messages
-	logEntry chan *AppendEntry // channel to receive heart beats from leader
-	sync.Mutex // mutex to access the state atomically
-	rng *rand.Rand
+	currentTerm int            // current term of the server
+	leader      bool           // indicates whether current server is leader
+	state       int            // current state of the server
+	eTimeout    *time.Timer    // timer for election timeout
+	hbTimeout *time.Timer // timer to send periodic hearbeats
+	duration    time.Duration  // duration for election timeout
+	hbDuration time.Duration // duration to send leader heartbeats
+	votedFor    int            // id of the server that received vote from this server in current term
+	server      cluster.Server // cluster server that provides message send/ receive functionality
+	sync.Mutex                 // mutex to access the state atomically
+	rng         *rand.Rand
 }
 
 // Term returns current term of a raft server
 func (s *raftServer) Term() int {
 	s.Lock()
-	currentTerm := s.term
+	currentTerm := s.currentTerm
 	s.Unlock()
 	return currentTerm
+}
+// setLeader sets value of leader flag to
+// new value
+func (s *raftServer) setLeader(leader bool) {
+	s.leader = leader
 }
 
 // IsLeader returns true if r is a leader and false otherwise
@@ -58,20 +65,22 @@ func (s *raftServer) getState() int {
 
 // setState atomically sets the state of the server to newState
 // TODO: Add verification for newState
-func (s *raftServer) setState(newState int)  {
-	s.Lock()
+func (s *raftServer) setState(newState int) {
+	//	s.Lock()
 	s.state = newState
-	s.Unlock()
-}
-// incrTerm atomically increments server's term
-func (s *raftServer)incrTerm() {
-	s.Lock()
-	s.term++
-	s.Unlock()
+	//	s.Unlock()
 }
 
-func New(pid int, ip string, port int, configFile string) (Raft, error){
-	s := raftServer{state: FOLLOWER, leader : false, elect : make(chan *RequestVote, bufferSize), logEntry : make(chan *AppendEntry, bufferSize), rng : rand.New(rand.NewSource(time.Now().UnixNano()))}
+// incrTerm atomically increments server's term
+func (s *raftServer) incrTerm() {
+	//	s.Lock()
+	s.currentTerm++
+	//	s.Unlock()
+}
+
+//TODO: Load current term from persistent storage
+func New(pid int, ip string, port int, configFile string) (Raft, error) {
+	s := raftServer{state: FOLLOWER, leader: false, rng: rand.New(rand.NewSource(time.Now().UnixNano()))}
 	raftConfig, err := ReadConfig(configFile)
 	if err != nil {
 		fmt.Println("Error in reading config file.")
@@ -87,7 +96,10 @@ func New(pid int, ip string, port int, configFile string) (Raft, error){
 	// initialize raft server details
 	s.server = clusterServer
 	s.duration = time.Duration(raftConfig.TimeoutInMillis) * time.Millisecond
+	s.hbDuration = time.Duration(raftConfig.HbTimeoutInMillis) * time.Millisecond
 	s.eTimeout = time.NewTimer(s.duration) // start timer
+	s.hbTimeout = time.NewTimer(s.duration)
+	s.hbTimeout.Stop()
 	s.serve()
 	return Raft(&s), err
 }

@@ -1,10 +1,10 @@
 package elect
 
 import (
-	"io/ioutil"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 )
 
 // Config struct represents all config information
@@ -13,9 +13,9 @@ import (
 type RaftConfig struct {
 	MemberRegSocket string // socket to connect to , to register a cluster server
 	PeerSocket      string // socket to connect to , to get a list of cluster peers
-	TimeoutInMillis int64 // timeout duration to start a new Raft election
+	TimeoutInMillis int64  // timeout duration to start a new Raft election
+	HbTimeoutInMillis int64 // timeout to sent periodic heartbeats
 }
-
 
 // ReadConfig reads configuration file information into Config object
 // parameters:

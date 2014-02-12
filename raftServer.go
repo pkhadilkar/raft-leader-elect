@@ -27,9 +27,9 @@ type raftServer struct {
 	leader      bool           // indicates whether current server is leader
 	state       int            // current state of the server
 	eTimeout    *time.Timer    // timer for election timeout
-	hbTimeout *time.Timer // timer to send periodic hearbeats
+	hbTimeout   *time.Timer    // timer to send periodic hearbeats
 	duration    time.Duration  // duration for election timeout
-	hbDuration time.Duration // duration to send leader heartbeats
+	hbDuration  time.Duration  // duration to send leader heartbeats
 	votedFor    int            // id of the server that received vote from this server in current term
 	server      cluster.Server // cluster server that provides message send/ receive functionality
 	sync.Mutex                 // mutex to access the state atomically
@@ -43,6 +43,7 @@ func (s *raftServer) Term() int {
 	s.Unlock()
 	return currentTerm
 }
+
 // setLeader sets value of leader flag to
 // new value
 func (s *raftServer) setLeader(leader bool) {

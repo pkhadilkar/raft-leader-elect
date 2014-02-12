@@ -16,7 +16,7 @@ type RequestVote struct {
 // it only contains term and leaderid
 type AppendEntry struct {
 	Term     int // leader's term
-	leaderId int // pid of the leader
+	LeaderId int // pid of the leader
 }
 
 type GrantVote struct {

@@ -13,6 +13,20 @@ func (s *raftServer) replyTo(e *cluster.Envelope, msg interface{}) {
 	s.server.Outbox() <- reply
 }
 
+// follower changes current state of the server
+// to follower
+func (s *raftServer) follower() {
+	s.hbTimeout.Stop()
+	s.setState(FOLLOWER)	
+}
+
+// voteFor maintains the server side state
+// to ensure that the server persists vote
+func (s *raftServer) voteFor(pid int) {
+	s.votedFor = pid
+	//TODO: Force this on stable storage
+}
+
 // serve is the main goroutine for Raft server
 // This will serve as a "main" routine for a RaftServer.
 // RaftServer's FOLLOWER and LEADER states are handled
@@ -29,8 +43,7 @@ func (s *raftServer) serve() {
 					s.currentTerm = ae.Term
 					acc = true
 					if s.isLeader() {
-						s.hbTimeout.Stop()
-						s.setState(FOLLOWER)
+						s.follower()
 					}
 				}
 				s.replyTo(e, &EntryReply{Term: s.currentTerm, Success: acc}) // can be asynchronous
@@ -38,9 +51,12 @@ func (s *raftServer) serve() {
 				acc := false
 				if (s.votedFor == e.Pid || s.votedFor == NotVoted) && rv.Term >= s.currentTerm || rv.Term > s.currentTerm {
 					s.currentTerm = rv.Term
-					s.votedFor = e.Pid
-					// TODO: Force this on stable storage
+					s.voteFor(e.Pid)
 					acc = true
+					// for leader only way to reach here is if currentTerm less than received term
+					if s.isLeader() {
+						s.follower()
+					}
 				}
 				s.replyTo(e, &GrantVote{Term: s.currentTerm, VoteGranted: acc})
 			}
@@ -51,7 +67,7 @@ func (s *raftServer) serve() {
 			if s.isLeader() {
 				s.hbTimeout.Reset(s.hbDuration)
 			}
-		case <- s.hbTimeout.C :
+		case <-s.hbTimeout.C:
 			s.sendHeartBeat()
 			s.hbTimeout.Reset(s.hbDuration)
 		default:
@@ -67,10 +83,12 @@ func (s *raftServer) startElection() {
 	s.setState(CANDIDATE)
 	peers := s.server.Peers()
 	votes := make(map[int]bool) // map to store received votes
+	votes[s.server.Pid()] = true
+	s.voteFor(s.server.Pid())
 	for s.getState() == CANDIDATE {
-		s.incrTerm()                                                 // increment term for current
-		candidateTimeout := time.Duration(150 + s.rng.Intn(150))     // random timeout used by Raft authors
-		s.eTimeout.Reset(candidateTimeout * time.Millisecond) // start re-election timer
+		s.incrTerm()                                             // increment term for current
+		candidateTimeout := time.Duration(150 + s.rng.Intn(150)) // random timeout used by Raft authors
+		s.eTimeout.Reset(candidateTimeout * time.Millisecond)    // start re-election timer
 	innerLoop:
 		for {
 			select {
@@ -90,10 +108,10 @@ func (s *raftServer) startElection() {
 					}
 				} else if rv, ok := msg.(RequestVote); ok { // RequestVote
 					acc := false
+					// in currentTerm candidate votes for itself
 					if rv.Term > s.currentTerm {
 						s.currentTerm = rv.Term
-						s.votedFor = e.Pid
-						// TODO: Force this on stable storage
+						s.voteFor(e.Pid)
 						s.setState(FOLLOWER)
 						acc = true
 					}
@@ -103,7 +121,7 @@ func (s *raftServer) startElection() {
 					}
 				} else if grantV, ok := msg.(GrantVote); ok && grantV.VoteGranted {
 					votes[e.Pid] = true
-					if len(votes) == len(peers) / 2 + 1 { // received majority votes
+					if len(votes) == len(peers)/2 + 1 { // received majority votes
 						s.setState(LEADER)
 						s.sendHeartBeat()
 						break innerLoop
@@ -120,8 +138,8 @@ func (s *raftServer) startElection() {
 	}
 }
 
-
 // sendHeartBeat sends heartbeat messages to followers
-func (s *raftServer)sendHeartBeat() {
-
+func (s *raftServer) sendHeartBeat() {
+	e := &cluster.Envelope{Pid: cluster.BROADCAST, Msg: &AppendEntry{Term: s.currentTerm, LeaderId: s.server.Pid()}}
+	s.server.Outbox() <- e
 }

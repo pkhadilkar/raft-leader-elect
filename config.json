@@ -1,5 +1,7 @@
 {
 	"MemberRegSocket" : "127.0.0.1:9999",
-	"PeerSocket" :  "127.0.0.1:9009"
-	"TimeOutInMillis" : 100
+	"PeerSocket" :  "127.0.0.1:9009",
+	"TimeoutInMillis" : 150,
+	"HbTimeoutInMillis": 50
+	"LogDirectoryPath" : "/home/pushkar/CS733/logs"
 }

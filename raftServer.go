@@ -6,6 +6,9 @@ import (
 	"math/rand"
 	"sync"
 	"time"
+	"log"
+	"os"
+	"strconv"
 )
 
 const bufferSize = 100
@@ -33,6 +36,7 @@ type raftServer struct {
 	votedFor    int            // id of the server that received vote from this server in current term
 	server      cluster.Server // cluster server that provides message send/ receive functionality
 	sync.Mutex                 // mutex to access the state atomically
+	log *log.Logger // logger for server to store log messages
 	rng         *rand.Rand
 }
 
@@ -79,6 +83,7 @@ func (s *raftServer) incrTerm() {
 	//	s.Unlock()
 }
 
+
 //TODO: Load current term from persistent storage
 func New(pid int, ip string, port int, configFile string) (Raft, error) {
 	s := raftServer{state: FOLLOWER, leader: false, rng: rand.New(rand.NewSource(time.Now().UnixNano()))}
@@ -100,7 +105,54 @@ func New(pid int, ip string, port int, configFile string) (Raft, error) {
 	s.hbDuration = time.Duration(raftConfig.HbTimeoutInMillis) * time.Millisecond
 	s.eTimeout = time.NewTimer(s.duration) // start timer
 	s.hbTimeout = time.NewTimer(s.duration)
-	s.hbTimeout.Stop()
-	s.serve()
+	s.hbTimeout.Stop()                   // immediately stop the timer since hbTimer should only timeout on leader
+
+	err = getLog(&s, raftConfig.LogDirectoryPath)
+	if err != nil {
+		return nil, err
+	}
+		go s.serve()
 	return Raft(&s), err
+}
+
+// function getLog creates a log for a raftServer
+func getLog(s *raftServer, logDirPath string) error {
+	fmt.Println("Creating log at " + logDirPath + "/" + strconv.Itoa(s.server.Pid()) + ".log")
+	f, err := os.Create(logDirPath + "/" + strconv.Itoa(s.server.Pid()) + ".log")
+	if err != nil {
+		fmt.Println("Cannot create log files")
+		return err
+	}
+	s.log = log.New(f, "", log.LstdFlags)
+	return err
+}
+
+func NewWithConfig(pid int, ip string, port int, raftConfig *RaftConfig) (Raft, error) {
+	s := raftServer{state: FOLLOWER, leader: false, rng: rand.New(rand.NewSource(time.Now().UnixNano()))}
+	clusterConf := RaftToClusterConf(raftConfig)
+	// initialize raft server details
+	fmt.Println("NewWithConfig: Creating clusterServer")
+	clusterServer, err := cluster.NewWithConfig(pid, ip, port, clusterConf)
+	fmt.Println("Created cluster server")
+	if err != nil {
+		fmt.Println("Error in creating new instance of cluster server")
+		return nil, err
+	}
+
+
+	s.server = clusterServer
+	s.duration = time.Duration(raftConfig.TimeoutInMillis) * time.Millisecond
+	s.hbDuration = time.Duration(raftConfig.HbTimeoutInMillis) * time.Millisecond
+	s.eTimeout = time.NewTimer(s.duration) // start timer
+	s.hbTimeout = time.NewTimer(s.duration)
+	s.hbTimeout.Stop()
+
+	err = getLog(&s, raftConfig.LogDirectoryPath)
+	if err != nil {
+		return nil, err
+	}
+
+
+	go s.serve()
+	return Raft(&s), err	
 }

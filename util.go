@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"github.com/pkhadilkar/cluster"
+	"strconv"
 )
 
 // Config struct represents all config information
@@ -15,6 +17,7 @@ type RaftConfig struct {
 	PeerSocket        string // socket to connect to , to get a list of cluster peers
 	TimeoutInMillis   int64  // timeout duration to start a new Raft election
 	HbTimeoutInMillis int64  // timeout to sent periodic heartbeats
+	LogDirectoryPath string // path to log directory
 }
 
 // ReadConfig reads configuration file information into Config object
@@ -32,4 +35,14 @@ func ReadConfig(path string) (*RaftConfig, error) {
 		return nil, errors.New("Incorrect format in config file.\n" + err.Error())
 	}
 	return &conf, err
+}
+
+func RaftToClusterConf(r *RaftConfig) *cluster.Config {
+	return &cluster.Config{MemberRegSocket: r.MemberRegSocket, PeerSocket: r.PeerSocket}
+}
+
+// writeToLog writes a formatted message to log
+// It specifically adds server details to log
+func (s *raftServer) writeToLog(msg string) {
+	s.log.Println(strconv.Itoa(s.server.Pid())+ ": #" + strconv.Itoa(s.Term()) + ": \n" + msg)
 }

@@ -46,3 +46,54 @@ func RaftToClusterConf(r *RaftConfig) *cluster.Config {
 func (s *raftServer) writeToLog(msg string) {
 	s.log.Println(strconv.Itoa(s.server.Pid())+ ": #" + strconv.Itoa(s.Term()) + ": \n" + msg)
 }
+
+
+// RequestVoteToJson converts a RequestVote msg 
+// into a TypedMessage json and returns string
+// representation of TypedMessage object
+func RequestVoteToJson(r *RequestVote) (string, error) {
+	tm := &TypedMessage{Type: REQ_VOTE, Msg: r}
+	b, err := json.Marshal(tm)
+	if err != nil {
+		return "", err
+	}
+	return string(b), err
+}
+
+// AppendEntryToJson converts an AppendEntry msg 
+// into a TypedMessage json and returns string
+// representation of TypedMessage object
+func AppendEntryToJson(r *AppendEntry) (string, error) {
+	tm := &TypedMessage{Type: APP_ENTRY, Msg: r}
+	b, err := json.Marshal(tm)
+	if err != nil {
+		return "", err
+	}
+	return string(b), err
+}
+
+
+// GrantVoteToJson converts an GrantVote msg 
+// into a TypedMessage json and returns string
+// representation of TypedMessage object
+func GrantVoteToJson(r *GrantVote) (string, error) {
+	tm := &TypedMessage{Type: GRANT_VOTE, Msg: r}
+	b, err := json.Marshal(tm)
+	if err != nil {
+		return "", err
+	}
+	return string(b), err
+}
+
+
+// GrantVoteToJson converts an EntryReply msg 
+// into a TypedMessage json and returns string
+// representation of TypedMessage object
+func EntryReplyToJson(r *EntryReply) (string, error) {
+	tm := &TypedMessage{Type: ENTRY_REPLY, Msg: r}
+	b, err := json.Marshal(tm)
+	if err != nil {
+		return "", err
+	}
+	return string(b), err
+}

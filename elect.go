@@ -10,7 +10,7 @@ import (
 // replyTo replies to sender of envelope
 // msg is the reply content. Pid in the
 // is used to identify the sender
-func (s *raftServer) replyTo(to int, msg string) {
+func (s *raftServer) replyTo(to int, msg interface{}) {
 	reply := &cluster.Envelope{Pid: to, Msg: msg}
 	s.server.Outbox() <- reply
 }
@@ -65,11 +65,7 @@ func (s *raftServer) startElection() {
 	for s.state() == CANDIDATE {
 		s.incrTerm()                                             // increment term for current
 		candidateTimeout := time.Duration(150 + s.rng.Intn(500)) // random timeout used by Raft authors
-		err := s.sendRequestVote()
-		if err != nil {
-			// Error here implies JSON error
-			panic("StartElection: Received error" + err.Error())
-		}
+		s.sendRequestVote()
 		s.writeToLog("Sent RequestVote message " + strconv.Itoa(int(candidateTimeout)))
 		s.eTimeout.Stop()
 		s.eTimeout.Reset(candidateTimeout * time.Millisecond) // start re-election timer
@@ -126,11 +122,7 @@ func (s *raftServer) handleRequestVote(from int, rv *RequestVote) bool {
 		acc = true
 		s.writeToLog("Changing state to follower")
 	}
-	data, err := GrantVoteToJson(&GrantVote{Term: s.currentTerm, VoteGranted: acc})
-	if err != nil {
-		panic("ERROR: " + err.Error())
-	}
-	s.replyTo(from, data)
+	s.replyTo(from, &GrantVote{Term: s.currentTerm, VoteGranted: acc})
 	return acc
 }
 
@@ -145,32 +137,18 @@ func (s *raftServer) handleAppendEntry(from int, ae *AppendEntry) bool {
 		acc = true
 		s.writeToLog("Changing state to follower")
 	}
-	data, err := EntryReplyToJson(&EntryReply{Term: s.currentTerm, Success: acc})
-	if err != nil {
-		panic("ERROR: " + err.Error())
-	}
-	s.replyTo(from, data)
+	s.replyTo(from, &EntryReply{Term: s.currentTerm, Success: acc})
 	return acc
 }
 
 // sendHeartBeat sends heartbeat messages to followers
 func (s *raftServer) sendHeartBeat() {
-	data, err := AppendEntryToJson(&AppendEntry{Term: s.Term(), LeaderId: s.server.Pid()})
-	if err != nil {
-		panic("ERROR: " + err.Error())
-	}
-	e := &cluster.Envelope{Pid: cluster.BROADCAST, Msg: data}
+	e := &cluster.Envelope{Pid: cluster.BROADCAST, Msg: &AppendEntry{Term: s.Term(), LeaderId: s.server.Pid()}}
 	s.server.Outbox() <- e
 }
 
-func (s *raftServer) sendRequestVote() error {
-	rvJson, err := RequestVoteToJson(&RequestVote{Term: s.Term(), CandidateId: s.server.Pid()})
-	if err != nil {
-		s.log.Println("ERROR: Could not parse RequestVote Object to JSON")
-		return err
-	}
-	e := &cluster.Envelope{Pid: cluster.BROADCAST, Msg: rvJson}
+func (s *raftServer) sendRequestVote() {
+	e := &cluster.Envelope{Pid: cluster.BROADCAST, Msg: &RequestVote{Term: s.Term(), CandidateId: s.server.Pid()}}
 	s.writeToLog("Sending message (Pid: " + strconv.Itoa(e.Pid) + ", CandidateId: " + strconv.Itoa(s.server.Pid()))
 	s.server.Outbox() <- e
-	return err
 }

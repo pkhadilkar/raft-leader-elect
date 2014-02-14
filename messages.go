@@ -37,12 +37,3 @@ type EntryReply struct {
 	Term    int  // replying server's updated current term
 	Success bool // true if AppendEntry was accepted
 }
-
-// TypedMessage is a message with data and type of the
-// data. Messages sent between servers use these messages
-// as this simpliefies decoding. The type is indicated by
-// constants defined above
-type TypedMessage struct {
-	Type int
-	Msg  interface{}
-}

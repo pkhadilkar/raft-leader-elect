@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"sync"
 	"time"
+	"encoding/gob"
 )
 
 const bufferSize = 100
@@ -133,7 +134,7 @@ func NewWithConfig(pid int, ip string, port int, raftConfig *RaftConfig) (Raft, 
 	s.server = clusterServer
 	s.duration = time.Duration(raftConfig.TimeoutInMillis) * time.Millisecond
 	s.hbDuration = time.Duration(raftConfig.HbTimeoutInMillis) * time.Millisecond
-	s.eTimeout = time.NewTimer(s.duration) // start timer
+	s.eTimeout = time.NewTimer(s.duration + time.Duration(s.rng.Intn(150))) // start timer
 	s.hbTimeout = time.NewTimer(s.duration)
 	s.hbTimeout.Stop()
 	s.votedFor = NotVoted
@@ -142,7 +143,17 @@ func NewWithConfig(pid int, ip string, port int, raftConfig *RaftConfig) (Raft, 
 	if err != nil {
 		return nil, err
 	}
-
-	go s.serve()
+	registerMessageTypes()
+	//go s.serve()
 	return Raft(&s), err
+}
+
+// registerMessageTypes registers Message types used by
+// server to gob. This is required because messages are
+// defined as interfaces in cluster.Envelope
+func registerMessageTypes() {
+	gob.Register(AppendEntry{})
+	gob.Register(EntryReply{})
+	gob.Register(GrantVote{})
+	gob.Register(RequestVote{})
 }

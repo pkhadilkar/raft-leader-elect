@@ -14,7 +14,7 @@ import (
 // be elected under normal condition and everyone
 // should agree upon current leader
 func TestElect(t *testing.T) {
-	raftConf := &RaftConfig{MemberRegSocket: "127.0.0.1:9999", PeerSocket: "127.0.0.1:9009", TimeoutInMillis: 150, HbTimeoutInMillis: 50, LogDirectoryPath: "/tmp/logs"}
+	raftConf := &RaftConfig{MemberRegSocket: "127.0.0.1:9999", PeerSocket: "127.0.0.1:9009", TimeoutInMillis: 1500, HbTimeoutInMillis: 50, LogDirectoryPath: "/tmp/logs"}
 
 	// launch cluster proxy servers
 	cluster.NewProxyWithConfig(RaftToClusterConf(raftConf))
@@ -38,13 +38,15 @@ func TestElect(t *testing.T) {
 	fmt.Println("Created servers")
 
 	// there should be a leader after sufficiently long duration
-
-	time.Sleep(1 * time.Minute)
+	count := 0
+	time.Sleep(10 * time.Second)
 	for i := 1; i <= serverCount; i += 1 {
 		if raftServers[i].isLeader() {
 			fmt.Println("Server " + strconv.Itoa(i) + " was chosen as leader.")
-			return
+			count++
 		}
 	}
-	t.Errorf("No leader was chosen in 1 minute")
+	if count != 1 {
+		t.Errorf("No leader was chosen in 1 minute")
+	}
 }

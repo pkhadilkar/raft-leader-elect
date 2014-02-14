@@ -7,6 +7,10 @@ import (
 	"time"
 )
 
+// RandomTimeoutRange indicates number of milliseconds
+// randome timeout should vary from its base value
+const RandomTimeoutRange = 150
+
 // replyTo replies to sender of envelope
 // msg is the reply content. Pid in the
 // is used to identify the sender
@@ -25,12 +29,11 @@ func (s *raftServer) serve() {
 		select {
 		case e := <-s.server.Inbox():
 			// received a message on server's inbox
-			s.writeToLog("server: Received a message on Server's inbox." + strconv.Itoa(e.Pid))
 			msg := e.Msg
 			if ae, ok := msg.(AppendEntry); ok { // AppendEntry
 				acc := s.handleAppendEntry(e.Pid, &ae)
 				if acc {
-					candidateTimeout := s.duration + time.Duration(s.rng.Intn(500))
+					candidateTimeout := s.duration + time.Duration(s.rng.Intn(RandomTimeoutRange))
 					s.eTimeout.Reset(candidateTimeout * time.Millisecond) // reset election timer if valid message received from server
 				}
 			} else if rv, ok := msg.(RequestVote); ok { // RequestVote
@@ -70,8 +73,8 @@ func (s *raftServer) startElection() {
 	votes[s.server.Pid()] = true
 	s.voteFor(s.server.Pid())
 	for s.state() == CANDIDATE {
-		s.incrTerm()                                             // increment term for current
-		candidateTimeout := time.Duration(150 + s.rng.Intn(500)) // random timeout used by Raft authors
+		s.incrTerm()                                                            // increment term for current
+		candidateTimeout := time.Duration(150 + s.rng.Intn(RandomTimeoutRange)) // random timeout used by Raft authors
 		s.sendRequestVote()
 		s.writeToLog("Sent RequestVote message " + strconv.Itoa(int(candidateTimeout)))
 		s.eTimeout.Reset(candidateTimeout * time.Millisecond) // start re-election timer
@@ -107,6 +110,7 @@ func (s *raftServer) startElection() {
 
 			if acc {
 				fmt.Println("Election completed " + strconv.Itoa(s.server.Pid()))
+				s.eTimeout.Reset(candidateTimeout * time.Millisecond) // start re-election timer
 				break
 			}
 		}
@@ -126,7 +130,7 @@ func (s *raftServer) handleRequestVote(from int, rv *RequestVote) bool {
 			s.follower()
 		}
 		acc = true
-		s.writeToLog("Changing state to follower")
+		s.writeToLog("Granting vote to " + strconv.Itoa(from) + ".Changing state to follower")
 	}
 	s.replyTo(from, &GrantVote{Term: s.currentTerm, VoteGranted: acc})
 	return acc
@@ -141,7 +145,6 @@ func (s *raftServer) handleAppendEntry(from int, ae *AppendEntry) bool {
 		s.currentTerm = ae.Term
 		s.setState(FOLLOWER)
 		acc = true
-		s.writeToLog("Changing state to follower")
 	}
 	s.replyTo(from, &EntryReply{Term: s.currentTerm, Success: acc})
 	return acc

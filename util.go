@@ -44,5 +44,5 @@ func RaftToClusterConf(r *RaftConfig) *cluster.Config {
 // writeToLog writes a formatted message to log
 // It specifically adds server details to log
 func (s *raftServer) writeToLog(msg string) {
-	s.log.Println(strconv.Itoa(s.server.Pid()) + ": #" + strconv.Itoa(s.Term()) + ": \n" + msg)
+	s.log.Println(strconv.Itoa(s.server.Pid()) + ": #" + strconv.Itoa(s.Term()) + ":" + msg)
 }

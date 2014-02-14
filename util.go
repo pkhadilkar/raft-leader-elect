@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"github.com/pkhadilkar/cluster"
+	"io/ioutil"
 	"strconv"
 )
 
@@ -17,7 +17,7 @@ type RaftConfig struct {
 	PeerSocket        string // socket to connect to , to get a list of cluster peers
 	TimeoutInMillis   int64  // timeout duration to start a new Raft election
 	HbTimeoutInMillis int64  // timeout to sent periodic heartbeats
-	LogDirectoryPath string // path to log directory
+	LogDirectoryPath  string // path to log directory
 }
 
 // ReadConfig reads configuration file information into Config object
@@ -44,11 +44,10 @@ func RaftToClusterConf(r *RaftConfig) *cluster.Config {
 // writeToLog writes a formatted message to log
 // It specifically adds server details to log
 func (s *raftServer) writeToLog(msg string) {
-	s.log.Println(strconv.Itoa(s.server.Pid())+ ": #" + strconv.Itoa(s.Term()) + ": \n" + msg)
+	s.log.Println(strconv.Itoa(s.server.Pid()) + ": #" + strconv.Itoa(s.Term()) + ": \n" + msg)
 }
 
-
-// RequestVoteToJson converts a RequestVote msg 
+// RequestVoteToJson converts a RequestVote msg
 // into a TypedMessage json and returns string
 // representation of TypedMessage object
 func RequestVoteToJson(r *RequestVote) (string, error) {
@@ -60,7 +59,7 @@ func RequestVoteToJson(r *RequestVote) (string, error) {
 	return string(b), err
 }
 
-// AppendEntryToJson converts an AppendEntry msg 
+// AppendEntryToJson converts an AppendEntry msg
 // into a TypedMessage json and returns string
 // representation of TypedMessage object
 func AppendEntryToJson(r *AppendEntry) (string, error) {
@@ -72,8 +71,7 @@ func AppendEntryToJson(r *AppendEntry) (string, error) {
 	return string(b), err
 }
 
-
-// GrantVoteToJson converts an GrantVote msg 
+// GrantVoteToJson converts an GrantVote msg
 // into a TypedMessage json and returns string
 // representation of TypedMessage object
 func GrantVoteToJson(r *GrantVote) (string, error) {
@@ -85,8 +83,7 @@ func GrantVoteToJson(r *GrantVote) (string, error) {
 	return string(b), err
 }
 
-
-// GrantVoteToJson converts an EntryReply msg 
+// GrantVoteToJson converts an EntryReply msg
 // into a TypedMessage json and returns string
 // representation of TypedMessage object
 func EntryReplyToJson(r *EntryReply) (string, error) {

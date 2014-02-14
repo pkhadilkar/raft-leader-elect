@@ -1,6 +1,7 @@
 package elect
 
 import (
+	"encoding/gob"
 	"fmt"
 	"github.com/pkhadilkar/cluster"
 	"log"
@@ -9,7 +10,6 @@ import (
 	"strconv"
 	"sync"
 	"time"
-	"encoding/gob"
 )
 
 const bufferSize = 100
@@ -27,37 +27,30 @@ const (
 
 // raftServer is a concrete implementation of raft Interface
 type raftServer struct {
-	currentTerm int            // current term of the server
-	leader      bool           // indicates whether current server is leader
-	currentState       int            // current state of the server
-	eTimeout    *time.Timer    // timer for election timeout
-	hbTimeout   *time.Timer    // timer to send periodic hearbeats
-	duration    time.Duration  // duration for election timeout
-	hbDuration  time.Duration  // duration to send leader heartbeats
-	votedFor    int            // id of the server that received vote from this server in current term
-	server      cluster.Server // cluster server that provides message send/ receive functionality
-	sync.Mutex                 // mutex to access the state atomically
-	log         *log.Logger    // logger for server to store log messages
-	rng         *rand.Rand
+	currentTerm  int            // current term of the server
+	currentState int            // current state of the server
+	eTimeout     *time.Timer    // timer for election timeout
+	hbTimeout    *time.Timer    // timer to send periodic hearbeats
+	duration     time.Duration  // duration for election timeout
+	hbDuration   time.Duration  // duration to send leader heartbeats
+	votedFor     int            // id of the server that received vote from this server in current term
+	server       cluster.Server // cluster server that provides message send/ receive functionality
+	sync.Mutex                  // mutex to access the state atomically
+	log          *log.Logger    // logger for server to store log messages
+	rng          *rand.Rand
 }
 
 // Term returns current term of a raft server
 func (s *raftServer) Term() int {
-	s.Lock()
+	//	s.Lock()
 	currentTerm := s.currentTerm
-	s.Unlock()
+	//	s.Unlock()
 	return currentTerm
-}
-
-// setLeader sets value of leader flag to
-// new value
-func (s *raftServer) setLeader(leader bool) {
-	s.leader = leader
 }
 
 // IsLeader returns true if r is a leader and false otherwise
 func (s *raftServer) isLeader() bool {
-	return s.leader
+	return s.currentState == LEADER
 }
 
 // follower changes current state of the server
@@ -120,7 +113,7 @@ func getLog(s *raftServer, logDirPath string) error {
 }
 
 func NewWithConfig(pid int, ip string, port int, raftConfig *RaftConfig) (Raft, error) {
-	s := raftServer{currentState: FOLLOWER, leader: false, rng: rand.New(rand.NewSource(time.Now().UnixNano()))}
+	s := raftServer{currentState: FOLLOWER, rng: rand.New(rand.NewSource(time.Now().UnixNano()))}
 	clusterConf := RaftToClusterConf(raftConfig)
 	// initialize raft server details
 	fmt.Println("NewWithConfig: Creating clusterServer")
@@ -144,7 +137,7 @@ func NewWithConfig(pid int, ip string, port int, raftConfig *RaftConfig) (Raft, 
 		return nil, err
 	}
 	registerMessageTypes()
-	//go s.serve()
+	go s.serve()
 	return Raft(&s), err
 }
 

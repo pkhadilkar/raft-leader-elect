@@ -28,10 +28,16 @@ func (s *raftServer) serve() {
 			s.writeToLog("server: Received a message on Server's inbox." + strconv.Itoa(e.Pid))
 			msg := e.Msg
 			if ae, ok := msg.(AppendEntry); ok { // AppendEntry
-				s.handleAppendEntry(e.Pid, &ae)
+				acc := s.handleAppendEntry(e.Pid, &ae)
+				if acc {
+					candidateTimeout := s.duration + time.Duration(s.rng.Intn(500))
+					s.eTimeout.Reset(candidateTimeout * time.Millisecond) // reset election timer if valid message received from server
+				}
 			} else if rv, ok := msg.(RequestVote); ok { // RequestVote
-				s.handleRequestVote(e.Pid, &rv)
+				s.handleRequestVote(e.Pid, &rv) // reset election timeout here too ? To avoid concurrent elections ?
 			}
+
+			// TODO handle EntryReply message
 
 		case <-s.eTimeout.C:
 			// received timeout on election timer
@@ -41,6 +47,7 @@ func (s *raftServer) serve() {
 			s.writeToLog("Election completed")
 			if s.isLeader() {
 				s.hbTimeout.Reset(s.hbDuration)
+				s.eTimeout.Stop() // leader should not time out for election
 			}
 		case <-s.hbTimeout.C:
 			s.writeToLog("Sending hearbeats")
@@ -67,15 +74,12 @@ func (s *raftServer) startElection() {
 		candidateTimeout := time.Duration(150 + s.rng.Intn(500)) // random timeout used by Raft authors
 		s.sendRequestVote()
 		s.writeToLog("Sent RequestVote message " + strconv.Itoa(int(candidateTimeout)))
-		s.eTimeout.Stop()
 		s.eTimeout.Reset(candidateTimeout * time.Millisecond) // start re-election timer
 		for {
 			acc := false
 			select {
-			case e, ok := <-s.server.Inbox():
+			case e, _ := <-s.server.Inbox():
 				// received a message on server's inbox
-				s.writeToLog("Received a MESSAGE on server's Inbox !!!!" + strconv.Itoa(e.Pid))
-				fmt.Println(ok)
 				msg := e.Msg
 				if ae, ok := msg.(AppendEntry); ok { // AppendEntry
 					acc = s.handleAppendEntry(e.Pid, &ae)
@@ -89,6 +93,7 @@ func (s *raftServer) startElection() {
 					if len(votes) == len(peers)/2+1 { // received majority votes
 						s.setState(LEADER)
 						s.sendHeartBeat()
+						fmt.Println("Server " + strconv.Itoa(s.server.Pid()) + " elected as the leader")
 						acc = true
 					}
 				}
@@ -101,6 +106,7 @@ func (s *raftServer) startElection() {
 			}
 
 			if acc {
+				fmt.Println("Election completed " + strconv.Itoa(s.server.Pid()))
 				break
 			}
 		}

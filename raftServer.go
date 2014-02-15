@@ -90,14 +90,14 @@ func (s *raftServer) incrTerm() {
 }
 
 //TODO: Load current term from persistent storage
-func New(pid int, ip string, port int, configFile string) (Raft, error) {
+func New(clusterServer cluster.Server, configFile string) (Raft, error) {
 	raftConfig, err := ReadConfig(configFile)
 	if err != nil {
 		fmt.Println("Error in reading config file.")
 		return nil, err
 	}
 	// NewWithConfig(pid int, ip string, port int, raftConfig *RaftConfig) (Raft, error) {
-	return NewWithConfig(pid, ip, port, raftConfig)
+	return NewWithConfig(clusterServer, raftConfig)
 }
 
 // function getLog creates a log for a raftServer
@@ -105,25 +105,19 @@ func getLog(s *raftServer, logDirPath string) error {
 	fmt.Println("Creating log at " + logDirPath + "/" + strconv.Itoa(s.server.Pid()) + ".log")
 	f, err := os.Create(logDirPath + "/" + strconv.Itoa(s.server.Pid()) + ".log")
 	if err != nil {
-		fmt.Println("Cannot create log files")
+		fmt.Println("Error: Cannot create log files")
 		return err
 	}
 	s.log = log.New(f, "", log.LstdFlags)
 	return err
 }
-
-func NewWithConfig(pid int, ip string, port int, raftConfig *RaftConfig) (Raft, error) {
+// NewWithConfig creates a new raftServer.
+// Parameters:
+//  clusterServer : Server object of cluster API. cluster.Server provides message send
+//                  receive along with other facilities such as finding peers
+//  raftConfig    : Raft configuration object
+func NewWithConfig(clusterServer cluster.Server, raftConfig *RaftConfig) (Raft, error) {
 	s := raftServer{currentState: FOLLOWER, rng: rand.New(rand.NewSource(time.Now().UnixNano()))}
-	clusterConf := RaftToClusterConf(raftConfig)
-	// initialize raft server details
-	fmt.Println("NewWithConfig: Creating clusterServer")
-	clusterServer, err := cluster.NewWithConfig(pid, ip, port, clusterConf)
-	fmt.Println("Created cluster server")
-	if err != nil {
-		fmt.Println("Error in creating new instance of cluster server")
-		return nil, err
-	}
-
 	s.server = clusterServer
 	s.duration = time.Duration(raftConfig.TimeoutInMillis) * time.Millisecond
 	s.hbDuration = time.Duration(raftConfig.HbTimeoutInMillis) * time.Millisecond
@@ -132,7 +126,7 @@ func NewWithConfig(pid int, ip string, port int, raftConfig *RaftConfig) (Raft, 
 	s.hbTimeout.Stop()
 	s.votedFor = NotVoted
 
-	err = getLog(&s, raftConfig.LogDirectoryPath)
+	err := getLog(&s, raftConfig.LogDirectoryPath)
 	if err != nil {
 		return nil, err
 	}

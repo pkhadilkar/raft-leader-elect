@@ -58,7 +58,7 @@ func TestPartition(t *testing.T) {
 
 	// isolate Leader and any one follower
 	follower := 0
-	for i := 1; i <= serverCount; i+=1 {
+	for i := 1; i <= serverCount; i += 1 {
 		if i != oldLeader {
 			follower = i
 			break
@@ -66,17 +66,14 @@ func TestPartition(t *testing.T) {
 	}
 	fmt.Println("Server " + strconv.Itoa(follower) + " was chosen as follower in minority partition")
 	for i := 1; i <= serverCount; i += 1 {
-		if i != oldLeader && i != follower {
-			pseudoClusters[oldLeader].AddToInboxFilter(raftServers[i].Pid())
-			pseudoClusters[oldLeader].AddToOutboxFilter(raftServers[i].Pid())
-			pseudoClusters[follower].AddToInboxFilter(raftServers[i].Pid())
-			pseudoClusters[follower].AddToOutboxFilter(raftServers[i].Pid())
-		}
+		pseudoClusters[oldLeader].AddToInboxFilter(raftServers[i].Pid())
+		pseudoClusters[oldLeader].AddToOutboxFilter(raftServers[i].Pid())
+		pseudoClusters[follower].AddToInboxFilter(raftServers[i].Pid())
+		pseudoClusters[follower].AddToOutboxFilter(raftServers[i].Pid())
 	}
-	// prevent broadcasts from leader too
-	// follower in leader's partition will not timeout since
-	// it will continue to receive heartbeats from the leader
+
 	pseudoClusters[oldLeader].AddToOutboxFilter(cluster.BROADCAST)
+	pseudoClusters[follower].AddToOutboxFilter(cluster.BROADCAST)
 
 	// wait for other servers to discover that leader
 	// has crashed and to elect a new leader

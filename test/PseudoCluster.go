@@ -11,6 +11,7 @@ package test
 
 import (
 	"github.com/pkhadilkar/cluster"
+	"sync"
 )
 
 const BufferSize = 100
@@ -21,6 +22,7 @@ type PseudoCluster struct {
 	cluster.Server              // real cluster.Server object
 	inboxFilter    map[int]bool // ignore messages received from server pids in this list on inbox
 	outboxFilter   map[int]bool // ignore messages received on outbox for server pids in this list
+	sync.Mutex    // global mutex to access map. Efficiency is not a concern here
 }
 
 func NewPseudoCluster(clusterServer cluster.Server) *PseudoCluster {
@@ -40,7 +42,9 @@ func NewPseudoCluster(clusterServer cluster.Server) *PseudoCluster {
 // Note : This method is not thread-safe. Please
 // ensure that only one method calls this at a time
 func (s *PseudoCluster) AddToInboxFilter(pid int) {
+	s.Lock()
 	s.inboxFilter[pid] = true
+	s.Unlock()
 }
 
 // AddToOutboxFilter adds a new pid to outbox filter
@@ -49,7 +53,9 @@ func (s *PseudoCluster) AddToInboxFilter(pid int) {
 // Note : This method is not thread-safe. Please
 // ensure that only one method calls this at a time
 func (s *PseudoCluster) AddToOutboxFilter(pid int) {
+	s.Lock()
 	s.outboxFilter[pid] = true
+	s.Unlock()
 }
 
 func (s *PseudoCluster) Inbox() chan *cluster.Envelope {
@@ -66,9 +72,11 @@ func (s *PseudoCluster) handleInbox() {
 		// if message is received from cluster.Server that
 		//is not in the filter list then send the message
 		// on PseudoServer's inbox
+		s.Lock()
 		if _, exists := s.inboxFilter[e.Pid]; !exists {
 			s.inbox <- e
 		}
+		s.Unlock()
 	}
 }
 
@@ -78,9 +86,11 @@ func (s *PseudoCluster) handleOutbox() {
 		// if message is received from server that is not
 		// in the filter list then send the message on
 		// cluster.Server's outbox
+		s.Lock()
 		if _, exists := s.outboxFilter[e.Pid]; !exists {
 			s.Server.Outbox() <- e
 		}
+		s.Unlock()
 	}
 }
 

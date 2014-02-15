@@ -27,7 +27,7 @@ This test case first waits for Raft to elect a leader. It then creates a minorit
 
 Configuration
 ----------------
-Configuration file contains configuration for both cluster and Raft leader election. Please see [cluster](http://github.com/pkhadilkar/cluster) for cluster specific fields. Raft configuration include *TimeoutInMillis* which is base timeout for election and *HbTimeoutInMillis* - timeout to send periodic heart beats. [Raft](https://ramcloud.stanford.edu/wiki/download/attachments/11370504/raft.pdf) recommends that general relation between timeouts should be "*msg_send_time <<  election_timeout*". Also heartbeat time should be much less than election timeout to avoid frequent elections.
+Configuration file contains configuration for both cluster and Raft leader election. Please see [cluster](http://github.com/pkhadilkar/cluster) for cluster specific fields. Raft configuration include *TimeoutInMillis* which is base timeout for election and *HbTimeoutInMillis* - timeout to send periodic heart beats. [Raft](https://ramcloud.stanford.edu/wiki/download/attachments/11370504/raft.pdf) recommends that general relation between timeouts should be "*msg_send_time <<  election_timeout*". Also heartbeat time should be much less than election timeout to avoid frequent elections. *LogDirectoryPath* contains the path to directory used by servers to create log files. Please ensure that this directory is created before using raft-leader-elect. Each server creates a file with name <server's pid>.log in this directory.
 
 Example
 --------------

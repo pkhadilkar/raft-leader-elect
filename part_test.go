@@ -80,7 +80,7 @@ func TestPartition(t *testing.T) {
 
 	// wait for other servers to discover that leader
 	// has crashed and to elect a new leader
-	time.Sleep(5 * time.Second)
+	time.Sleep(9 * time.Second)
 
 	count = 0
 	for i := 1; i <= serverCount; i += 1 {

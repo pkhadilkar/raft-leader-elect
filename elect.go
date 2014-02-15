@@ -1,7 +1,6 @@
 package elect
 
 import (
-	"fmt"
 	"github.com/pkhadilkar/cluster"
 	"strconv"
 	"time"
@@ -33,8 +32,9 @@ func (s *raftServer) serve() {
 			if ae, ok := msg.(AppendEntry); ok { // AppendEntry
 				acc := s.handleAppendEntry(e.Pid, &ae)
 				if acc {
-					candidateTimeout := s.duration + time.Duration(s.rng.Intn(RandomTimeoutRange))
-					s.eTimeout.Reset(candidateTimeout * time.Millisecond) // reset election timer if valid message received from server
+					candidateTimeout := time.Duration(s.duration + s.rng.Int63n(RandomTimeoutRange))
+					// reset election timer if valid message received from server
+					s.eTimeout.Reset(candidateTimeout * time.Millisecond)
 				}
 			} else if rv, ok := msg.(RequestVote); ok { // RequestVote
 				s.handleRequestVote(e.Pid, &rv) // reset election timeout here too ? To avoid concurrent elections ?
@@ -49,13 +49,13 @@ func (s *raftServer) serve() {
 			s.startElection()
 			s.writeToLog("Election completed")
 			if s.isLeader() {
-				s.hbTimeout.Reset(s.hbDuration)
+				s.hbTimeout.Reset(time.Duration(s.hbDuration) * time.Millisecond)
 				s.eTimeout.Stop() // leader should not time out for election
 			}
 		case <-s.hbTimeout.C:
 			s.writeToLog("Sending hearbeats")
 			s.sendHeartBeat()
-			s.hbTimeout.Reset(s.hbDuration)
+			s.hbTimeout.Reset(time.Duration(s.hbDuration) * time.Millisecond)
 		default:
 			time.Sleep(1 * time.Millisecond) // sleep to avoid busy looping
 		}
@@ -73,8 +73,8 @@ func (s *raftServer) startElection() {
 	votes[s.server.Pid()] = true
 	s.voteFor(s.server.Pid())
 	for s.state() == CANDIDATE {
-		s.incrTerm()                                                            // increment term for current
-		candidateTimeout := time.Duration(150 + s.rng.Intn(RandomTimeoutRange)) // random timeout used by Raft authors
+		s.incrTerm()                                                                     // increment term for current
+		candidateTimeout := time.Duration(s.duration + s.rng.Int63n(RandomTimeoutRange)) // random timeout used by Raft authors
 		s.sendRequestVote()
 		s.writeToLog("Sent RequestVote message " + strconv.Itoa(int(candidateTimeout)))
 		s.eTimeout.Reset(candidateTimeout * time.Millisecond) // start re-election timer
@@ -96,7 +96,6 @@ func (s *raftServer) startElection() {
 					if len(votes) == len(peers)/2+1 { // received majority votes
 						s.setState(LEADER)
 						s.sendHeartBeat()
-						fmt.Println("Server " + strconv.Itoa(s.server.Pid()) + " elected as the leader")
 						acc = true
 					}
 				}
@@ -109,7 +108,6 @@ func (s *raftServer) startElection() {
 			}
 
 			if acc {
-				fmt.Println("Election completed " + strconv.Itoa(s.server.Pid()))
 				s.eTimeout.Reset(candidateTimeout * time.Millisecond) // start re-election timer
 				break
 			}

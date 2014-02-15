@@ -27,7 +27,6 @@ func TestElect(t *testing.T) {
 	raftServers := make([]Raft, serverCount+1)
 
 	for i := 1; i <= serverCount; i += 1 {
-		fmt.Println("Creating server " + strconv.Itoa(i))
 		// create cluster.Server
 		clusterServer, err := cluster.NewWithConfig(i, "127.0.0.1", 5000+i, RaftToClusterConf(raftConf))
 		if err != nil {
@@ -42,8 +41,6 @@ func TestElect(t *testing.T) {
 		raftServers[i] = s
 	}
 
-	fmt.Println("Created servers")
-
 	// there should be a leader after sufficiently long duration
 	count := 0
 	time.Sleep(10 * time.Second)
@@ -54,6 +51,6 @@ func TestElect(t *testing.T) {
 		}
 	}
 	if count != 1 {
-		t.Errorf("No leader was chosen in 1 minute")
+		t.Errorf("No leader was chosen")
 	}
 }

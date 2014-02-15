@@ -8,7 +8,6 @@ import (
 	"math/rand"
 	"os"
 	"strconv"
-	"sync"
 	"time"
 )
 
@@ -31,11 +30,10 @@ type raftServer struct {
 	currentState int            // current state of the server
 	eTimeout     *time.Timer    // timer for election timeout
 	hbTimeout    *time.Timer    // timer to send periodic hearbeats
-	duration     time.Duration  // duration for election timeout
-	hbDuration   time.Duration  // duration to send leader heartbeats
+	duration     int64          // duration for election timeout
+	hbDuration   int64          // duration to send leader heartbeats
 	votedFor     int            // id of the server that received vote from this server in current term
 	server       cluster.Server // cluster server that provides message send/ receive functionality
-	sync.Mutex                  // mutex to access the state atomically
 	log          *log.Logger    // logger for server to store log messages
 	rng          *rand.Rand
 }
@@ -74,7 +72,7 @@ func (s *raftServer) state() int {
 	return s.currentState
 }
 
-// setState atomically sets the state of the server to newState
+// setState sets the state of the server to newState
 // TODO: Add verification for newState
 func (s *raftServer) setState(newState int) {
 	//	s.Lock()
@@ -82,7 +80,11 @@ func (s *raftServer) setState(newState int) {
 	//	s.Unlock()
 }
 
-// incrTerm atomically increments server's term
+func (s *raftServer) Pid() int {
+	return s.server.Pid()
+}
+
+// incrTerm  increments server's term
 func (s *raftServer) incrTerm() {
 	//	s.Lock()
 	s.currentTerm++
@@ -111,6 +113,7 @@ func getLog(s *raftServer, logDirPath string) error {
 	s.log = log.New(f, "", log.LstdFlags)
 	return err
 }
+
 // NewWithConfig creates a new raftServer.
 // Parameters:
 //  clusterServer : Server object of cluster API. cluster.Server provides message send
@@ -119,10 +122,10 @@ func getLog(s *raftServer, logDirPath string) error {
 func NewWithConfig(clusterServer cluster.Server, raftConfig *RaftConfig) (Raft, error) {
 	s := raftServer{currentState: FOLLOWER, rng: rand.New(rand.NewSource(time.Now().UnixNano()))}
 	s.server = clusterServer
-	s.duration = time.Duration(raftConfig.TimeoutInMillis) * time.Millisecond
-	s.hbDuration = time.Duration(raftConfig.HbTimeoutInMillis) * time.Millisecond
-	s.eTimeout = time.NewTimer(s.duration + time.Duration(s.rng.Intn(150))) // start timer
-	s.hbTimeout = time.NewTimer(s.duration)
+	s.duration = raftConfig.TimeoutInMillis
+	s.hbDuration = raftConfig.HbTimeoutInMillis
+	s.eTimeout = time.NewTimer(time.Duration(s.duration+s.rng.Int63n(150)) * time.Millisecond) // start timer
+	s.hbTimeout = time.NewTimer(time.Duration(s.duration) * time.Millisecond)
 	s.hbTimeout.Stop()
 	s.votedFor = NotVoted
 

@@ -22,7 +22,7 @@ type PseudoCluster struct {
 	cluster.Server              // real cluster.Server object
 	inboxFilter    map[int]bool // ignore messages received from server pids in this list on inbox
 	outboxFilter   map[int]bool // ignore messages received on outbox for server pids in this list
-	sync.Mutex    // global mutex to access map. Efficiency is not a concern here
+	sync.Mutex                  // global mutex to access map. Efficiency is not a concern here
 }
 
 func NewPseudoCluster(clusterServer cluster.Server) *PseudoCluster {

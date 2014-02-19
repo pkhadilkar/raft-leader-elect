@@ -15,7 +15,7 @@ import (
 // old leader and rest of the cluster and checks whether the
 // old leader reverts back to follower.
 func TestLeaderSeparation(t *testing.T) {
-	raftConf := &RaftConfig{MemberRegSocket: "127.0.0.1:9999", PeerSocket: "127.0.0.1:9009", TimeoutInMillis: 1500, HbTimeoutInMillis: 50, LogDirectoryPath: "logs"}
+	raftConf := &RaftConfig{MemberRegSocket: "127.0.0.1:9999", PeerSocket: "127.0.0.1:9009", TimeoutInMillis: 1500, HbTimeoutInMillis: 50, LogDirectoryPath: "logs", StableStoreDirectoryPath: "./stable"}
 
 	// launch cluster proxy servers
 	cluster.NewProxyWithConfig(RaftToClusterConf(raftConf))
@@ -99,7 +99,7 @@ func TestLeaderSeparation(t *testing.T) {
 	// state of the old leader must be FOLLOWER
 	// since a new leader has been elected
 	// with a greater term
-	if raftServers[oldLeader].state() != FOLLOWER {
+	if raftServers[oldLeader].State() != FOLLOWER {
 		t.Errorf("Old leader is still in leader state.")
 	}
 }

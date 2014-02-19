@@ -1,16 +1,18 @@
 Raft Leader Election
 =====================
 
-Raft Leader election implements leader election component of [Raft](https://ramcloud.stanford.edu/wiki/download/attachments/11370504/raft.pdf). Raft servers use [cluster](http://github.com/pkhadilkar/cluster) service to send and receive messages. This project currently includes only election component and not log messages.
+Raft Leader election implements leader election component of [Raft](https://ramcloud.stanford.edu/wiki/download/attachments/11370504/raft.pdf). Raft servers use [cluster](http://github.com/pkhadilkar/cluster) service to send and receive messages. This project currently includes only election component and not log messages. The server term and voted for information is persisted on stable storage.
 
 Installation
 -------------
 ```
 $ go get github.com/pkhadilkar/raft-leader-election
 $ # cd into directory containing raft-leader-election
+$ mkdir logs
+$ mkdir stable
 $ go test
 ```
-
+If you want to create logs and stable directories at different path, please change paths RaftConfig object in test files.
 Please see installation instructions for [cluster](http://github.com/pkhadilkar/cluster) as cluster uses [ZeroMQ](http://zeromq.org/) libs and [zmq4](https://github.com/pebbe/zmq4) by pebbe.
 
 Test

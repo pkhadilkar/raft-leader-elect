@@ -71,8 +71,8 @@ func (s *raftServer) startElection() {
 	s.writeToLog("Number of peers: " + strconv.Itoa(len(peers)))
 	votes := make(map[int]bool) // map to store received votes
 	votes[s.server.Pid()] = true
-	s.voteFor(s.server.Pid())
-	for s.state() == CANDIDATE {
+	s.voteFor(s.server.Pid(), s.Term())
+	for s.State() == CANDIDATE {
 		s.incrTerm()                                                                     // increment term for current
 		candidateTimeout := time.Duration(s.duration + s.rng.Int63n(RandomTimeoutRange)) // random timeout used by Raft authors
 		s.sendRequestVote()
@@ -121,16 +121,16 @@ func (s *raftServer) handleRequestVote(from int, rv *RequestVote) bool {
 	acc := false
 	// in currentTerm candidate votes for itself
 	s.writeToLog("Received requestVote message from " + strconv.Itoa(from) + " with term #" + strconv.Itoa(rv.Term))
-	if (s.votedFor == from || s.votedFor == NotVoted) && rv.Term >= s.currentTerm || rv.Term > s.currentTerm {
-		s.currentTerm = rv.Term
-		s.voteFor(from)
-		if s.state() != FOLLOWER {
+	if (s.VotedFor() == from || s.VotedFor() == NotVoted) && rv.Term >= s.Term() || rv.Term > s.Term() {
+		s.setTerm(rv.Term)
+		s.voteFor(from, s.Term())
+		if s.State() != FOLLOWER {
 			s.follower()
 		}
 		acc = true
 		s.writeToLog("Granting vote to " + strconv.Itoa(from) + ".Changing state to follower")
 	}
-	s.replyTo(from, &GrantVote{Term: s.currentTerm, VoteGranted: acc})
+	s.replyTo(from, &GrantVote{Term: s.Term(), VoteGranted: acc})
 	return acc
 }
 
@@ -139,12 +139,12 @@ func (s *raftServer) handleRequestVote(from int, rv *RequestVote) bool {
 func (s *raftServer) handleAppendEntry(from int, ae *AppendEntry) bool {
 	acc := false
 	s.writeToLog("Received appendEntry message from " + strconv.Itoa(from) + " with term #" + strconv.Itoa(ae.Term))
-	if ae.Term >= s.currentTerm { // AppendEntry with same or larger term
-		s.currentTerm = ae.Term
+	if ae.Term >= s.Term() { // AppendEntry with same or larger term
+		s.setTerm(ae.Term)
 		s.setState(FOLLOWER)
 		acc = true
 	}
-	s.replyTo(from, &EntryReply{Term: s.currentTerm, Success: acc})
+	s.replyTo(from, &EntryReply{Term: s.Term(), Success: acc})
 	return acc
 }
 

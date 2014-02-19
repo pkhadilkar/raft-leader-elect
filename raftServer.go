@@ -4,6 +4,7 @@ import (
 	"encoding/gob"
 	"fmt"
 	"github.com/pkhadilkar/cluster"
+	"io/ioutil"
 	"log"
 	"math/rand"
 	"os"
@@ -24,24 +25,25 @@ const (
 	CANDIDATE
 )
 
+// TODO: store pointer to raftConfig rather than storing all fields in raftServer
 // raftServer is a concrete implementation of raft Interface
 type raftServer struct {
-	currentTerm  int            // current term of the server
 	currentState int            // current state of the server
 	eTimeout     *time.Timer    // timer for election timeout
 	hbTimeout    *time.Timer    // timer to send periodic hearbeats
 	duration     int64          // duration for election timeout
 	hbDuration   int64          // duration to send leader heartbeats
-	votedFor     int            // id of the server that received vote from this server in current term
 	server       cluster.Server // cluster server that provides message send/ receive functionality
 	log          *log.Logger    // logger for server to store log messages
 	rng          *rand.Rand
+	state        *PersistentState // server information that should be persisted
+	config       *RaftConfig      // config information for raftServer
 }
 
 // Term returns current term of a raft server
 func (s *raftServer) Term() int {
 	//	s.Lock()
-	currentTerm := s.currentTerm
+	currentTerm := s.state.Term
 	//	s.Unlock()
 	return currentTerm
 }
@@ -58,18 +60,67 @@ func (s *raftServer) follower() {
 	s.setState(FOLLOWER)
 }
 
+// SetTerm sets the current term of the server
+// The changes are persisted on disk
+func (s *raftServer) setTerm(term int) {
+	s.state.Term = term
+	s.persistState()
+}
+
 // voteFor maintains the server side state
 // to ensure that the server persists vote
-func (s *raftServer) voteFor(pid int) {
-	s.votedFor = pid
+// Parameters:
+//  pid  : pid of the server to whom vote is given
+//  term : term for which the vote was granted
+func (s *raftServer) voteFor(pid int, term int) {
+	s.state.VotedFor = pid
+	s.state.Term = term
 	//TODO: Force this on stable storage
+	s.persistState()
+}
+
+// persistState persists the state of the server on
+// stable storage. This function panicks if it cannot
+// write the state.
+func (s *raftServer) persistState() {
+	pStateBytes, err := PersistentStateToBytes(s.state)
+	if err != nil {
+		//TODO: Add the state that was encoded. This might help in case of an error
+		panic("Cannot encode PersistentState")
+	}
+	err = ioutil.WriteFile(s.config.StableStoreDirectoryPath+"/"+strconv.Itoa(s.server.Pid()), pStateBytes, UserReadWriteMode)
+	if err != nil {
+		panic("Could not persist state to storage on file " + s.config.StableStoreDirectoryPath)
+	}
+}
+
+// readPersistentState tries to read the persistent
+// state from the stable storage. It does not panic if
+// no record of state is found in stable storage as
+// that represents a valid state when server is  started
+// for the first time
+func (s *raftServer) readPersistentState() {
+	pStateRead, err := ReadPersistentState(s.config.StableStoreDirectoryPath)
+	if err != nil {
+		// TODO: Should the server convert itself to follower if it cannot read the persistent state ?
+		// panic("Cannot read state persisted to storage")
+		s.state = &PersistentState{VotedFor: NotVoted, Term: 0}
+		return
+	}
+	s.state = pStateRead
 }
 
 // state returns the current state of the server
 // value returned is one of the FOLLOWER,
 // CANDIDATE and LEADER
-func (s *raftServer) state() int {
+func (s *raftServer) State() int {
 	return s.currentState
+}
+
+// votedFor returns the pid of the server
+// voted for by current server
+func (s *raftServer) VotedFor() int {
+	return s.state.VotedFor
 }
 
 // setState sets the state of the server to newState
@@ -87,8 +138,10 @@ func (s *raftServer) Pid() int {
 // incrTerm  increments server's term
 func (s *raftServer) incrTerm() {
 	//	s.Lock()
-	s.currentTerm++
+	s.state.Term++
 	//	s.Unlock()
+	// TODO: Is persistState necessary here ?
+	s.persistState()
 }
 
 //TODO: Load current term from persistent storage
@@ -122,12 +175,16 @@ func getLog(s *raftServer, logDirPath string) error {
 func NewWithConfig(clusterServer cluster.Server, raftConfig *RaftConfig) (Raft, error) {
 	s := raftServer{currentState: FOLLOWER, rng: rand.New(rand.NewSource(time.Now().UnixNano()))}
 	s.server = clusterServer
+	s.config = raftConfig
+	// read persistent state from the disk if server was being restarted as a
+	// part of recovery then it would find the persistent state on the disk
+	s.readPersistentState()
 	s.duration = raftConfig.TimeoutInMillis
 	s.hbDuration = raftConfig.HbTimeoutInMillis
 	s.eTimeout = time.NewTimer(time.Duration(s.duration+s.rng.Int63n(150)) * time.Millisecond) // start timer
 	s.hbTimeout = time.NewTimer(time.Duration(s.duration) * time.Millisecond)
 	s.hbTimeout.Stop()
-	s.votedFor = NotVoted
+	s.state.VotedFor = NotVoted
 
 	err := getLog(&s, raftConfig.LogDirectoryPath)
 	if err != nil {

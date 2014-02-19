@@ -13,11 +13,17 @@ import (
 // required to start a server. It represents
 // information in config file in structure
 type RaftConfig struct {
-	MemberRegSocket   string // socket to connect to , to register a cluster server
-	PeerSocket        string // socket to connect to , to get a list of cluster peers
-	TimeoutInMillis   int64  // timeout duration to start a new Raft election
-	HbTimeoutInMillis int64  // timeout to sent periodic heartbeats
-	LogDirectoryPath  string // path to log directory
+	MemberRegSocket          string // socket to connect to , to register a cluster server
+	PeerSocket               string // socket to connect to , to get a list of cluster peers
+	TimeoutInMillis          int64  // timeout duration to start a new Raft election
+	HbTimeoutInMillis        int64  // timeout to sent periodic heartbeats
+	LogDirectoryPath         string // path to log directory
+	StableStoreDirectoryPath string // path to directory that can be used to store persistent information
+}
+
+type PersistentState struct {
+	Term     int // last term seen by the server
+	VotedFor int // pid of the server voted for
 }
 
 // ReadConfig reads configuration file information into Config object

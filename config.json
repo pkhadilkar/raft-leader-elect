@@ -3,5 +3,6 @@
 	"PeerSocket" :  "127.0.0.1:9009",
 	"TimeoutInMillis" : 1500,
 	"HbTimeoutInMillis": 50
-	"LogDirectoryPath" : "/home/pushkar/CS733/logs"
+	"LogDirectoryPath" : "/home/pushkar/CS733/src/github.com/pkhadilkar/raft-leader-elect/logs"
+	"StableStoreDirectoryPath" : "/home/pushkar/CS733/src/github.com/pkhadilkar/raft-leader-elect/stable"
 }

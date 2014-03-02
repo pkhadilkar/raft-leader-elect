@@ -95,9 +95,13 @@ func (s *PseudoCluster) handleOutbox() {
 }
 
 func (s *PseudoCluster) RemoveFromInboxFilter(pid int) {
+	s.Lock()
 	delete(s.inboxFilter, pid)
+	s.Unlock()
 }
 
 func (s *PseudoCluster) RemoveFromOutboxFilter(pid int) {
+	s.Lock()
 	delete(s.outboxFilter, pid)
+	s.Unlock()
 }

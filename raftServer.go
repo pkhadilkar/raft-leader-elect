@@ -14,6 +14,7 @@ import (
 	"os"
 	"strconv"
 	"time"
+	"sync"
 )
 
 const bufferSize = 100
@@ -42,18 +43,21 @@ type raftServer struct {
 	rng          *rand.Rand
 	state        *PersistentState // server information that should be persisted
 	config       *RaftConfig      // config information for raftServer
+	sync.Mutex // mutex to protect the state
 }
 
 // Term returns current term of a raft server
 func (s *raftServer) Term() int {
-	//	s.Lock()
+	s.Lock()
 	currentTerm := s.state.Term
-	//	s.Unlock()
+	s.Unlock()
 	return currentTerm
 }
 
 // IsLeader returns true if r is a leader and false otherwise
 func (s *raftServer) isLeader() bool {
+	s.Lock()
+	defer s.Unlock()
 	return s.currentState == LEADER
 }
 
@@ -87,6 +91,8 @@ func (s *raftServer) voteFor(pid int, term int) {
 // stable storage. This function panicks if it cannot
 // write the state.
 func (s *raftServer) persistState() {
+	s.Lock()
+	defer s.Unlock()
 	pStateBytes, err := PersistentStateToBytes(s.state)
 	if err != nil {
 		//TODO: Add the state that was encoded. This might help in case of an error
@@ -110,28 +116,34 @@ func (s *raftServer) readPersistentState() {
 		s.state = &PersistentState{VotedFor: NotVoted, Term: 0}
 		return
 	}
+	s.Lock()
 	s.state = pStateRead
+	s.Unlock()
 }
 
 // state returns the current state of the server
 // value returned is one of the FOLLOWER,
 // CANDIDATE and LEADER
 func (s *raftServer) State() int {
+	s.Lock()
+	defer s.Unlock()
 	return s.currentState
 }
 
 // votedFor returns the pid of the server
 // voted for by current server
 func (s *raftServer) VotedFor() int {
+	s.Lock()
+	defer s.Unlock()
 	return s.state.VotedFor
 }
 
 // setState sets the state of the server to newState
 // TODO: Add verification for newState
 func (s *raftServer) setState(newState int) {
-	//	s.Lock()
+	s.Lock()
 	s.currentState = newState
-	//	s.Unlock()
+	s.Unlock()
 }
 
 func (s *raftServer) Pid() int {
@@ -140,9 +152,9 @@ func (s *raftServer) Pid() int {
 
 // incrTerm  increments server's term
 func (s *raftServer) incrTerm() {
-	//	s.Lock()
+	s.Lock()
 	s.state.Term++
-	//	s.Unlock()
+	s.Unlock()
 	// TODO: Is persistState necessary here ?
 	s.persistState()
 }

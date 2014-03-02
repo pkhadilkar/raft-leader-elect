@@ -8,13 +8,12 @@ import (
 	"testing"
 	"time"
 	//	"encoding/gob"
-	"os"
+	"io/ioutil"
 )
 
-// TestElect tests normal behavior that leader should
-// be elected under normal condition and everyone
-// should agree upon current leader
-func TestElect(t *testing.T) {
+// TestState checks whether server correctly
+// reads persistent state from the disk
+func TestState(t *testing.T) {
 	raftConf := &RaftConfig{MemberRegSocket: "127.0.0.1:9999", PeerSocket: "127.0.0.1:9009", TimeoutInMillis: 1500, HbTimeoutInMillis: 50, LogDirectoryPath: "logs", StableStoreDirectoryPath: "./stable"}
 
 	// delete stored state to avoid unnecessary effect on following test cases
@@ -23,16 +22,31 @@ func TestElect(t *testing.T) {
 	// launch cluster proxy servers
 	cluster.NewProxyWithConfig(RaftToClusterConf(raftConf))
 
-	fmt.Println("Started Proxy")
-
 	time.Sleep(100 * time.Millisecond)
 
 	serverCount := 5
 	raftServers := make([]Raft, serverCount+1)
 
+	// create persistent state for one of the servers
+	// state is created in such a way that one of the
+	// servers will be way ahead of the others in 
+	// logical time and hence it should eventually
+	// be elected as reader
+	pStateBytes, err := PersistentStateToBytes(&PersistentState{Term: 500, VotedFor: 1})
+
+
+	if err != nil {
+		//TODO: Add the state that was encoded. This might help in case of an error
+		t.Errorf("Cannot encode PersistentState")
+	}
+	err = ioutil.WriteFile(raftConf.StableStoreDirectoryPath + "/1", pStateBytes, UserReadWriteMode)
+	if err != nil {
+		t.Errorf("Could not create state to storage on file " + raftConf.StableStoreDirectoryPath)
+	}
+
 	for i := 1; i <= serverCount; i += 1 {
 		// create cluster.Server
-		clusterServer, err := cluster.NewWithConfig(i, "127.0.0.1", 5000+i, RaftToClusterConf(raftConf))
+		clusterServer, err := cluster.NewWithConfig(i, "127.0.0.1", 5400+i, RaftToClusterConf(raftConf))
 		if err != nil {
 			t.Errorf("Error in creating cluster server. " + err.Error())
 			return
@@ -48,37 +62,16 @@ func TestElect(t *testing.T) {
 	// there should be a leader after sufficiently long duration
 	count := 0
 	time.Sleep(10 * time.Second)
+	leader := 0
 	for i := 1; i <= serverCount; i += 1 {
 		if raftServers[i].isLeader() {
 			fmt.Println("Server " + strconv.Itoa(i) + " was chosen as leader.")
+			leader = i
 			count++
 		}
 	}
-	if count != 1 {
-		t.Errorf("No leader was chosen")
-	}
-}
 
-// deleteState deletes persistent state on
-// the disk for each server
-// parameters:
-//    baseDir: Path to base directory 
-//     which contains state of all 
-//     the servers on the disk
-func deleteState(baseDir string) {
-	base, err := os.Open(baseDir)
-	if err != nil {
-		fmt.Println("Error in opening directory." )
-		return
+	if count > 1 || leader != 1 {
+		t.Errorf("Persistent state read was not utilized")
 	}
-	fis, err := base.Readdir(-1) // read information for all files in the directory
-	for _, f := range fis {
-		err = os.Remove(baseDir + "/" + f.Name())
-		if err != nil {
-			fmt.Println("Error in deleting the file")
-			fmt.Println(err.Error())
-			return
-		}
-	}
-	return
 }

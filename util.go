@@ -52,3 +52,10 @@ func RaftToClusterConf(r *RaftConfig) *cluster.Config {
 func (s *raftServer) writeToLog(msg string) {
 	s.log.Println(strconv.Itoa(s.server.Pid()) + ": #" + strconv.Itoa(s.Term()) + ":" + msg)
 }
+
+// returns name of the file that is used
+// to store persistent state of the 
+// server on the stable storage
+func ServerFileName(pid int) string {
+	return strconv.Itoa(pid)
+}

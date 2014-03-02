@@ -14,6 +14,9 @@ import (
 func TestPartition(t *testing.T) {
 	raftConf := &RaftConfig{MemberRegSocket: "127.0.0.1:9999", PeerSocket: "127.0.0.1:9009", TimeoutInMillis: 1500, HbTimeoutInMillis: 50, LogDirectoryPath: "logs", StableStoreDirectoryPath: "./stable"}
 
+	// delete stored state to avoid unnecessary effect on following test cases
+	deleteState(raftConf.StableStoreDirectoryPath)
+
 	// launch cluster proxy servers
 	cluster.NewProxyWithConfig(RaftToClusterConf(raftConf))
 
@@ -90,7 +93,4 @@ func TestPartition(t *testing.T) {
 	if count != 1 {
 		t.Errorf("No leader was chosen in majority partition")
 	}
-
-	// delete stored state to avoid unnecessary effect on following test cases
-	deleteState(raftConf.StableStoreDirectoryPath)
 }

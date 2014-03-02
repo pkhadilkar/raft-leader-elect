@@ -92,11 +92,12 @@ func (s *raftServer) persistState() {
 		//TODO: Add the state that was encoded. This might help in case of an error
 		panic("Cannot encode PersistentState")
 	}
-	err = ioutil.WriteFile(s.config.StableStoreDirectoryPath+"/"+strconv.Itoa(s.server.Pid()), pStateBytes, UserReadWriteMode)
+	err = ioutil.WriteFile(s.config.StableStoreDirectoryPath+"/" + ServerFileName(s.server.Pid()), pStateBytes, UserReadWriteMode)
 	if err != nil {
 		panic("Could not persist state to storage on file " + s.config.StableStoreDirectoryPath)
 	}
 }
+
 
 // readPersistentState tries to read the persistent
 // state from the stable storage. It does not panic if
@@ -104,7 +105,7 @@ func (s *raftServer) persistState() {
 // that represents a valid state when server is  started
 // for the first time
 func (s *raftServer) readPersistentState() {
-	pStateRead, err := ReadPersistentState(s.config.StableStoreDirectoryPath)
+	pStateRead, err := ReadPersistentState(s.config.StableStoreDirectoryPath + "/" + ServerFileName(s.server.Pid()))
 	if err != nil {
 		s.state = &PersistentState{VotedFor: NotVoted, Term: 0}
 		return

@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 	//	"encoding/gob"
+	"os"
 )
 
 // TestElect tests normal behavior that leader should
@@ -53,4 +54,31 @@ func TestElect(t *testing.T) {
 	if count != 1 {
 		t.Errorf("No leader was chosen")
 	}
+
+	// delete stored state to avoid unnecessary effect on following test cases
+	deleteState(raftConf.StableStoreDirectoryPath)
+}
+
+// deleteState deletes persistent state on
+// the disk for each server
+// parameters:
+//    baseDir: Path to base directory 
+//     which contains state of all 
+//     the servers on the disk
+func deleteState(baseDir string) {
+	base, err := os.Open(baseDir)
+	if err != nil {
+		fmt.Println("Error in opening directory." )
+		return
+	}
+	fis, err := base.Readdir(-1) // read information for all files in the directory
+	for _, f := range fis {
+		err = os.Remove(baseDir + "/" + f.Name())
+		if err != nil {
+			fmt.Println("Error in deleting the file")
+			fmt.Println(err.Error())
+			return
+		}
+	}
+	return
 }

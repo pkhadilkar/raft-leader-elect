@@ -91,4 +91,6 @@ func TestPartition(t *testing.T) {
 		t.Errorf("No leader was chosen in majority partition")
 	}
 
+	// delete stored state to avoid unnecessary effect on following test cases
+	deleteState(raftConf.StableStoreDirectoryPath)
 }

@@ -102,4 +102,7 @@ func TestLeaderSeparation(t *testing.T) {
 	if raftServers[oldLeader].State() != FOLLOWER {
 		t.Errorf("Old leader is still in leader state.")
 	}
+
+	// delete stored state to avoid unnecessary effect on following test cases
+	deleteState(raftConf.StableStoreDirectoryPath)
 }

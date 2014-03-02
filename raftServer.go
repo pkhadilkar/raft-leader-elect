@@ -1,3 +1,7 @@
+// Raft leader election launches a set of Raft processes and
+// ensures that a leader is elected. State of the Raft 
+// servers is stored on stable storage / disk.
+
 package elect
 
 import (
@@ -102,8 +106,6 @@ func (s *raftServer) persistState() {
 func (s *raftServer) readPersistentState() {
 	pStateRead, err := ReadPersistentState(s.config.StableStoreDirectoryPath)
 	if err != nil {
-		// TODO: Should the server convert itself to follower if it cannot read the persistent state ?
-		// panic("Cannot read state persisted to storage")
 		s.state = &PersistentState{VotedFor: NotVoted, Term: 0}
 		return
 	}
@@ -190,7 +192,7 @@ func NewWithConfig(clusterServer cluster.Server, raftConfig *RaftConfig) (Raft, 
 	if err != nil {
 		return nil, err
 	}
-	registerMessageTypes()
+	
 	go s.serve()
 	return Raft(&s), err
 }
@@ -198,7 +200,7 @@ func NewWithConfig(clusterServer cluster.Server, raftConfig *RaftConfig) (Raft, 
 // registerMessageTypes registers Message types used by
 // server to gob. This is required because messages are
 // defined as interfaces in cluster.Envelope
-func registerMessageTypes() {
+func init() {
 	gob.Register(AppendEntry{})
 	gob.Register(EntryReply{})
 	gob.Register(GrantVote{})

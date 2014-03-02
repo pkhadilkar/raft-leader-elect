@@ -19,13 +19,16 @@ Test
 ----
 
 + **Simple Server Election (leader_test.go)**:
-This test case launches 5 Raft servers and checks that a leader has been elected after sufficiently long time.
+Launches 5 Raft servers and checks that a leader has been elected after sufficiently long time.
 
 + **Leader Partition and Rejoining (leaderSeparation_test.go)**:
 This test case first waits for Raft to elect a leader. It then simulates leader crash by ignoring all messages to/from leader and checks that the remaining servers elect a new leader. It then re-introduces old leader into the cluster and checks that the old leader reverts back to the follower.
 
 + **Majority Minority Partition (part_test.go)** :
 This test case first waits for Raft to elect a leader. It then creates a minority network partition that contains leader and a follower and checks that the servers in majority partition elect a new leader.
+
++ ** Recovery and Reading state from disk (pstate_test.go)** :
+Creates a persistent state file for one of the servers on disk before creating servers. The current term in this state is much higher than default start term. Thus, the expected behavior is that the server with orchestrated state wins the election.
 
 Configuration
 ----------------
